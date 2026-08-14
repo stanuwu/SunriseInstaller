@@ -2,6 +2,12 @@ namespace Sunrise.Installer;
 
 public sealed record DepotSpec(uint DepotId, ulong ManifestId);
 
+/// <summary>A named set of depot manifests, in other words one downloadable version of the game.</summary>
+public sealed record GameVersion(string Name, IReadOnlyList<DepotSpec> Depots);
+
+/// <summary>A Destiny 2 season and the dates it ran between, used to name a build.</summary>
+public sealed record Season(string Name, DateOnly Start, DateOnly End);
+
 public sealed record ReleaseAsset(
     string Name,
     Uri DownloadUrl,
@@ -34,6 +40,8 @@ public sealed class UserPreferences
 {
     public string InstallDirectory { get; set; } = string.Empty;
     public string SteamUsername { get; set; } = string.Empty;
+    public string GameVersion { get; set; } = string.Empty;
+    public Dictionary<uint, ulong> CustomManifests { get; set; } = [];
 }
 
 public enum UpdateStatus

@@ -9,6 +9,10 @@ public sealed partial class MainForm : Form
     private readonly InstallCoordinator coordinator;
     private readonly TextBox installPath = new();
     private readonly TextBox steamUsername = new();
+    private readonly ComboBox gameVersion = new();
+    private readonly Label manifestSummary = new();
+    private readonly TableLayoutPanel customManifests = new();
+    private readonly Dictionary<uint, TextBox> manifestInputs = [];
     private readonly Label status = new();
     private readonly ProgressBar progressBar = new();
     private readonly RichTextBox activity = new();
@@ -56,6 +60,7 @@ public sealed partial class MainForm : Form
             UserPreferences preferences = await InstallCoordinator.LoadPreferencesAsync(CancellationToken.None);
             installPath.Text = preferences.InstallDirectory;
             steamUsername.Text = preferences.SteamUsername;
+            ApplyVersionPreference(preferences);
             await RefreshLocalStatusAsync();
         }
         catch (Exception exception)
@@ -75,14 +80,30 @@ public sealed partial class MainForm : Form
         {
             string installDirectory = Path.GetFullPath(installPath.Text.Trim());
             InstallerState? state = await coordinator.LoadStateAsync(installDirectory, CancellationToken.None);
-            status.Text = state is null
-                ? "No Sunrise install was found in this folder."
-                : $"Installed Sunrise release: {state.ReleaseTag}";
+            status.Text = DescribeInstall(installDirectory, state);
         }
         catch
         {
             status.Text = "The install folder path is not valid.";
         }
+    }
+
+    private string DescribeInstall(string installDirectory, InstallerState? state)
+    {
+        string summary = state is null
+            ? "No Sunrise install was found in this folder."
+            : $"Installed Sunrise release: {state.ReleaseTag}";
+        if (GameBuild.Read(installDirectory) is string build)
+        {
+            summary += $"   |   Game: {build}";
+        }
+
+        if (state is not null && state.Manifests.Count > 0 && !MatchesSelectedVersion(state.Manifests))
+        {
+            summary += "   |   Installed version differs from the selected one. Install to change it.";
+        }
+
+        return summary;
     }
 
     private Task SavePreferencesAsync(CancellationToken cancellationToken)
@@ -92,6 +113,7 @@ public sealed partial class MainForm : Form
             InstallDirectory = installPath.Text.Trim(),
             SteamUsername = steamUsername.Text.Trim(),
         };
+        CollectVersionPreference(preferences);
         return InstallCoordinator.SavePreferencesAsync(preferences, cancellationToken);
     }
 }

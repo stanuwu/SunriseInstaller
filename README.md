@@ -32,14 +32,29 @@ Logo credit: [Solus](https://www.youtube.com/@Solus-yt).
 | Repair         | Validates the game, deletes the user config and reinstalls the mod. |
 | Check / Update | Checks if a new mod version is released and installs it.            |
 
-Uses Steam app `1085660` with these manifests:
-
-| depot     | manifest              |
-|-----------|-----------------------|
-| `1085661` | `7180122903232116872` |
-| `1085662` | `2210332166360342287` |
-
 Install requires ~110 GiB of free space.
+
+## Game version
+
+Sunrise Installer uses Steam app `1085660`. A game version is the pair of depot manifests the install is
+pinned to, chosen with the `Game version` box:
+
+| version                                     | depot     | manifest              |
+|---------------------------------------------|-----------|-----------------------|
+| Season of Arrivals (build 86657, 23 Aug 2020) | `1085661` | `7180122903232116872` |
+|                                             | `1085662` | `2210332166360342287` |
+
+Picking `Custom...` accepts a manifest id per depot instead. Manifest ids come from the depot history on
+steamdb.info. Sunrise is built against one game build, so another build downloads and installs fine but
+will very likely break the mod.
+
+The installed build is read from `destiny2.exe` and named after the season it was compiled in, so a
+custom install still reads as `Season of Arrivals, build 86657 (23 Aug 2020)` rather than a manifest id.
+
+One folder holds one version. To keep two versions, install each into its own folder: the install state,
+Repair and Check / Update are all per folder. Repair and Check / Update reuse the manifests the folder was
+installed with, so they never quietly convert an install to another version. Install is what changes the
+version of a folder.
 
 ## Sunrise releases
 

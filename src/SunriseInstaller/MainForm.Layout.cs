@@ -9,8 +9,9 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             Padding = new Padding(28, 22, 28, 22),
             ColumnCount = 1,
-            RowCount = 8,
+            RowCount = 9,
         };
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -40,9 +41,10 @@ public sealed partial class MainForm
         root.Controls.Add(title, 0, 0);
         root.Controls.Add(subtitle, 0, 1);
         root.Controls.Add(BuildFolderRow(), 0, 2);
-        root.Controls.Add(BuildSteamPanel(), 0, 3);
-        root.Controls.Add(BuildActionRow(), 0, 4);
-        root.Controls.Add(BuildStatusPanel(), 0, 5);
+        root.Controls.Add(BuildVersionPanel(), 0, 3);
+        root.Controls.Add(BuildSteamPanel(), 0, 4);
+        root.Controls.Add(BuildActionRow(), 0, 5);
+        root.Controls.Add(BuildStatusPanel(), 0, 6);
 
         activity.Dock = DockStyle.Fill;
         activity.ReadOnly = true;
@@ -51,7 +53,7 @@ public sealed partial class MainForm
         activity.Font = new Font("Consolas", 9F);
         activity.DetectUrls = true;
         activity.Margin = new Padding(0, 12, 0, 8);
-        root.Controls.Add(activity, 0, 6);
+        root.Controls.Add(activity, 0, 7);
 
         Label footer = new()
         {
@@ -60,7 +62,7 @@ public sealed partial class MainForm
             ForeColor = Color.FromArgb(100, 116, 139),
             Margin = new Padding(0, 4, 0, 0),
         };
-        root.Controls.Add(footer, 0, 7);
+        root.Controls.Add(footer, 0, 8);
         Controls.Add(root);
     }
 

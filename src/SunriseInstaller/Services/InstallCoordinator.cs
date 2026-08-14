@@ -22,6 +22,7 @@ public sealed class InstallCoordinator : IDisposable
     public async Task InstallAsync(
         string installRoot,
         string steamUsername,
+        IReadOnlyList<DepotSpec> depots,
         IProgress<OperationProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -36,6 +37,7 @@ public sealed class InstallCoordinator : IDisposable
             await PrepareGameFilesAsync(
                 root,
                 steamUsername.Trim(),
+                depots,
                 validate: false,
                 progress,
                 cancellationToken);
@@ -43,7 +45,7 @@ public sealed class InstallCoordinator : IDisposable
             payload = await sunrise.PrepareLatestAsync(root, ScaleProgress(progress, 92, 96), cancellationToken);
             progress?.Report(new OperationProgress("Installing Sunrise...", 97));
             await payloadInstaller.ApplyAsync(root, payload, preserveDepotDll: true, cancellationToken);
-            await SaveStateAsync(root, payload, cancellationToken);
+            await SaveStateAsync(root, payload, depots, cancellationToken);
             progress?.Report(new OperationProgress("Install complete.", 100));
             log.Info("install_done", "Install complete.", ("mode", "install"));
         }
@@ -59,6 +61,7 @@ public sealed class InstallCoordinator : IDisposable
     public async Task RepairAsync(
         string installRoot,
         string steamUsername,
+        IReadOnlyList<DepotSpec> depots,
         IProgress<OperationProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -71,12 +74,14 @@ public sealed class InstallCoordinator : IDisposable
         }
 
         log.Info("repair_start", "Repair started.", ("mode", "repair"));
+        IReadOnlyList<DepotSpec> installed = await InstalledDepotsAsync(root, depots, cancellationToken);
         PreparedPayload? payload = null;
         try
         {
             await PrepareGameFilesAsync(
                 root,
                 steamUsername.Trim(),
+                installed,
                 validate: true,
                 progress,
                 cancellationToken);
@@ -86,7 +91,7 @@ public sealed class InstallCoordinator : IDisposable
             payload = await sunrise.PrepareLatestAsync(root, ScaleProgress(progress, 96, 98), cancellationToken);
             progress?.Report(new OperationProgress("Reinstalling Sunrise...", 99));
             await payloadInstaller.ApplyAsync(root, payload, preserveDepotDll: true, cancellationToken);
-            await SaveStateAsync(root, payload, cancellationToken);
+            await SaveStateAsync(root, payload, installed, cancellationToken);
             progress?.Report(new OperationProgress("Repair complete.", 100));
             log.Info("repair_done", "Repair complete.", ("mode", "repair"));
         }
@@ -116,13 +121,14 @@ public sealed class InstallCoordinator : IDisposable
         }
 
         log.Info("update_start", "Update started.", ("tag", check.LatestRelease.Tag));
+        IReadOnlyList<DepotSpec> installed = await InstalledDepotsAsync(root, [], cancellationToken);
         PreparedPayload? payload = null;
         try
         {
             payload = await sunrise.PrepareLatestAsync(root, ScaleProgress(progress, 10, 85), cancellationToken);
             progress?.Report(new OperationProgress("Installing the update...", 90));
             await payloadInstaller.ApplyAsync(root, payload, preserveDepotDll: false, cancellationToken);
-            await SaveStateAsync(root, payload, cancellationToken);
+            await SaveStateAsync(root, payload, installed, cancellationToken);
             progress?.Report(new OperationProgress($"Updated to {payload.Release.Tag}.", 100));
             log.Info("update_done", "Update complete.", ("tag", payload.Release.Tag));
             return true;
@@ -185,6 +191,7 @@ public sealed class InstallCoordinator : IDisposable
     private async Task PrepareGameFilesAsync(
         string installRoot,
         string steamUsername,
+        IReadOnlyList<DepotSpec> gameDepots,
         bool validate,
         IProgress<OperationProgress>? progress,
         CancellationToken cancellationToken)
@@ -197,15 +204,37 @@ public sealed class InstallCoordinator : IDisposable
             downloader,
             installRoot,
             steamUsername,
+            gameDepots,
             validate,
             MessageProgress(progress),
             cancellationToken);
         VerifyGameFiles(installRoot);
     }
 
+    /// <summary>
+    /// The manifests the folder was installed with. Repair and Update must reuse them instead of the
+    /// selected version, otherwise repairing an install would quietly convert it to another version.
+    /// </summary>
+    private async Task<IReadOnlyList<DepotSpec>> InstalledDepotsAsync(
+        string root,
+        IReadOnlyList<DepotSpec> fallback,
+        CancellationToken cancellationToken)
+    {
+        InstallerState? state = await stores.LoadStateAsync(root, cancellationToken);
+        if (state is null || state.Manifests.Count == 0)
+        {
+            return fallback;
+        }
+
+        return [.. state.Manifests
+            .OrderBy(manifest => manifest.Key)
+            .Select(manifest => new DepotSpec(manifest.Key, manifest.Value))];
+    }
+
     private static async Task SaveStateAsync(
         string root,
         PreparedPayload payload,
+        IEnumerable<DepotSpec> depots,
         CancellationToken cancellationToken)
     {
         InstallerState state = new()
@@ -215,7 +244,7 @@ public sealed class InstallCoordinator : IDisposable
             ReleaseAssetDigest = payload.Release.Asset.Digest,
             InstalledDllSha256 = payload.DllSha256,
             InstalledAtUtc = DateTimeOffset.UtcNow,
-            Manifests = AppConstants.Depots.ToDictionary(depot => depot.DepotId, depot => depot.ManifestId),
+            Manifests = depots.ToDictionary(depot => depot.DepotId, depot => depot.ManifestId),
         };
         await JsonStores.SaveStateAsync(root, state, cancellationToken);
     }
